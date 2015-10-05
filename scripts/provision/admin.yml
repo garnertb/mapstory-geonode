@@ -134,8 +134,8 @@
   copy: src=files/geogigconfig dest=/usr/share/tomcat7/.geogigconfig mode=0775 owner=tomcat7 group=tomcat7
   tags: [setup]
 
-- name: fetch geoserver
-  shell: wget -SN https://s3.amazonaws.com/garnertb-share/geoserver.war chdir=/home/mapstory
+- name: copy geoserver.war
+  copy: src=files/geoserver.war dest=/home/mapstory mode=0775 owner=mapstory group=mapstory
   tags: [geoserver]
 
 - name: db client settings
