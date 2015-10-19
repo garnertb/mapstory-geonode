@@ -416,4 +416,3 @@ class Oauth2ProviderTest(TestCase):
 #         self.assertLoginRequired(response)
 
 
-

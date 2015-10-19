@@ -78,6 +78,7 @@ INSTALLED_APPS += (
     'threadedcomments',
     'django_comments',
     'django.contrib.sites',
+    'mapstory.importer'
 )
 
 # Adding Threaded Comments app
