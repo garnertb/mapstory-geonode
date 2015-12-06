@@ -8,6 +8,8 @@
     - include: admin.yml
   handlers:
     - include: handlers.yml
+  roles:
+    - celery
 
 - hosts: mapstory
   sudo: yes
