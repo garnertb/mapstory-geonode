@@ -123,7 +123,7 @@ class UploaderTests(MapStoryTestMixin):
 
         layer = res['layers'][0]
 
-        self.assertEqual(layer['status'], 'created')
+        self.assertEqual(layer['status'], 'updated')
         layer = Layer.objects.get(name=layer['name'])
         self.assertEqual(layer.srid, 'EPSG:4326')
         self.assertEqual(layer.store, self.datastore.name)
@@ -335,15 +335,15 @@ class UploaderTests(MapStoryTestMixin):
 
         # run ogr2ogr
         gi = GDALImport(in_file)
-        layers = gi.import_file(configuration_options=configuration_options)
+        layers = gi.handle(configuration_options=configuration_options)
 
         d = db.connections['datastore'].settings_dict
         connection_string = "PG:dbname='%s' user='%s' password='%s'" % (d['NAME'], d['USER'], d['PASSWORD'])
 
-        for configuration_option in configuration_options:
-            for field in configuration_option.get('convert_to_date', []):
-                with OGRFieldConverter(connection_string) as datasource:
-                    datasource.convert_field(layers[configuration_option.get('index', 0)][0], field)
+        #for configuration_option in configuration_options:
+        #    for field in configuration_option.get('convert_to_date', []):
+        #        with OGRFieldConverter(connection_string) as datasource:
+        #            datasource.convert_field(layers[configuration_option.get('index', 0)][0], field)
 
         output = []
         for layer, layer_config in layers:
@@ -440,7 +440,6 @@ class UploaderTests(MapStoryTestMixin):
         response = c.post(reverse('uploads-configure', args=[upload.id]), data=json.dumps(payload),
                           content_type='application/json')
         self.assertTrue(response.status_code, 302)
-
         layer = Layer.objects.all()[0]
         self.assertEqual(layer.srid, 'EPSG:4326')
         self.assertEqual(layer.store, self.datastore.name)

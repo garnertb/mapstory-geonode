@@ -15,6 +15,9 @@ from geoserver.support import DimensionInfo
 from dateutil.parser import parse
 from django import db
 from django.views.generic import View
+from celery.contrib.methods import task
+from celery import chain, group
+from celery import current_app
 
 logger = logging.getLogger(__name__)
 
@@ -320,7 +323,7 @@ class GDALInspector(InspectorMixin):
 
 class GDALImport(Import):
 
-    _publish_handlers = []
+    _import_handlers = []
     source_inspectors = [GDALInspector]
     target_inspectors = [OGRInspector]
 
@@ -334,23 +337,18 @@ class GDALImport(Import):
             self.target_store = connection_string
 
     def _initialize_handlers(self):
-        self._publish_handlers = [load_handler(handler, self)
-                                 for handler in ['mapstory.importer.publishhandler.GeoserverPublishHandler']]
-
-    def publish(self, layername, *args, **kwargs):
-        results = []
-
-        for handler in self.publish_handlers:
-            results.append(handler.publish(layername, *args, **kwargs))
-
-        return results
-
+        self._import_handlers = [load_handler(handler, self)
+                                 for handler in ['mapstory.importer.import_handlers.FieldConverterHandler',
+                                                 'mapstory.importer.import_handlers.GeoserverPublishHandler',
+                                                 'mapstory.importer.import_handlers.GeoServerTimeHandler',
+                                                 'mapstory.importer.import_handlers.GeoNodePublishHandler']]
     @property
-    def publish_handlers(self):
-        if not self._publish_handlers:
-            # If there are no upload handlers defined, initialize them from settings.
+    def import_handlers(self):
+
+        if not self._import_handlers:
             self._initialize_handlers()
-        return self._publish_handlers
+
+        return self._import_handlers
 
     def open_datastore(self, connection_string, inspectors, *args, **kwargs):
         """
@@ -382,6 +380,32 @@ class GDALImport(Import):
         """
 
         return target_datastore.CreateLayer(layer_name, *args, **kwargs)
+
+    def handle(self, configuration_options, *args, **kwargs):
+        """
+        Executes the entire import process.
+        1) Imports the dataset from the source dataset to the target.
+        2) Executes arbitrary handlers that can modify the data set.
+        3) Executes arbitrary publish handlers to publish the data set.
+        """
+        layers = self.import_file(configuration_options=configuration_options)
+        results = []
+
+        for layer, config in layers:
+            results.append(self.run_import_handlers(layer, config))
+
+        return layers
+
+    def run_import_handlers(self, layer, layer_config, *args, **kwargs):
+        """
+        Handlers that are run on each layer of a data set.
+        """
+        results = []
+
+        for handler in self.import_handlers:
+            results.append(handler.handle(layer, layer_config, *args, **kwargs))
+
+        return results
 
     def import_file(self, *args, **kwargs):
         """

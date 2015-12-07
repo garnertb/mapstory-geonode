@@ -12,7 +12,7 @@ from geonode.geoserver.helpers import gs_slurp
 from geonode.layers.models import Layer
 from django import db
 from geoserver.catalog import FailedRequestError
-
+from .tasks import import_object
 
 class UploadListView(ListView):
     model = UploadedData
@@ -105,32 +105,33 @@ class ConfigureImport(DetailView, ImportHelper):
         obj.save()
 
         f = obj.upload.uploadfile_set.first()
-        gi = GDALImport(f.file.path)
-        layers = gi.import_file(configuration_options=configuration_options)
+        import_result = import_object.delay(f, configuration_options=configuration_options)
 
-        for layer, layer_config in layers:
+        #layers = gi.import_file(configuration_options=configuration_options)
 
-            for field_to_convert in layer_config.get('convert_to_date', []):
-                new_field = self.convert_field_to_time(layer, field_to_convert)
+        # for layer, layer_config in layers:
+        #
+        #     for field_to_convert in layer_config.get('convert_to_date', []):
+        #         new_field = self.convert_field_to_time(layer, field_to_convert)
+        #
+        #         # if the start_date or end_date needed to be converted to a date
+        #         # field, use the newly created field name
+        #         for date_option in ('start_date', 'end_date'):
+        #             if layer_config.get(date_option) == field_to_convert:
+        #                 layer_config[date_option] = new_field.lower()
+        #
+        #     self.publish_layer_in_geoserver(layer)
+        #
+        #     if layer_config.get('configureTime'):
+        #         self.enable_time(layer, **layer_config)
+        #
+        #     self.publish_layer_in_geonode(layer)
 
-                # if the start_date or end_date needed to be converted to a date
-                # field, use the newly created field name
-                for date_option in ('start_date', 'end_date'):
-                    if layer_config.get(date_option) == field_to_convert:
-                        layer_config[date_option] = new_field.lower()
+        #l = Layer.objects.get(name=layer)
+        #obj.layer = l
+        #obj.save()
 
-            self.publish_layer_in_geoserver(layer)
-
-            if layer_config.get('configureTime'):
-                self.enable_time(layer, **layer_config)
-
-            self.publish_layer_in_geonode(layer)
-
-        l = Layer.objects.get(name=layer)
-        obj.layer = l
-        obj.save()
-
-        return HttpResponse(content=json.dumps(dict(redirect=l.get_absolute_url())),
+        return HttpResponse(content=json.dumps(dict(id=import_result.id, status=import_result.status)),
                             content_type='application/json')
 
 
