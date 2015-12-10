@@ -259,7 +259,6 @@ class UploaderTests(MapStoryTestMixin):
 
         self.generic_time_check(layer, attribute=date_attr.attribute, end_attribute=end_date_attr.attribute)
 
-
     def test_us_states_kml(self):
         """
         Tests the import of us_states_kml.
@@ -585,6 +584,30 @@ class UploaderTests(MapStoryTestMixin):
         self.assertEqual(response.status_code, 204)
 
         self.assertEqual(UploadedData.objects.all().count(), 0)
+
+    def naming_an_import(self):
+        """
+        Tests providing a name in the configuration options.
+        """
+        f = os.path.join(os.path.dirname(__file__), 'test_ogr', 'point_with_date.geojson')
+        c = AdminClient()
+        c.login_as_non_admin()
+        name = 'point-with-a-date'
+        with open(f) as fp:
+            response = c.post(reverse('uploads-new'), {'file': fp}, follow=True)
+
+        payload = {'index': 0,
+                   'convert_to_date': ['date'],
+                   'start_date': 'date',
+                   'configureTime': True,
+                   'name': name,
+                   'editable': True}
+
+        response = c.post('/importer-api/data-layers/1/configure/', data=json.dumps(payload),
+                          content_type='application/json')
+
+        layer = Layer.objects.all()[0]
+        self.assertEqual(layer.title, name.replace('-', '_'))
 
     def test_api_import(self):
         """

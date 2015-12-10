@@ -406,7 +406,7 @@ class GDALImport(Import):
 
         for layer_options in configuration_options:
             layer = data.GetLayer(layer_options.get('index'))
-            layer_name = layer.GetName().lower()
+            layer_name = layer_options.get('name', layer.GetName().lower())
             srs = layer.GetSpatialRef()
 
             if layer_name == 'ogrgeojson':
