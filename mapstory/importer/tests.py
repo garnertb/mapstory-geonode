@@ -29,6 +29,7 @@ from geonode.layers.models import Layer
 from django.conf import settings
 from geonode.geoserver.helpers import ogc_server_settings
 from geonode.geoserver.helpers import gs_slurp
+from mapstory.importer.models import UploadLayer
 User = get_user_model()
 
 
@@ -398,7 +399,8 @@ class UploaderTests(MapStoryTestMixin):
         upload = response.context['object_list'][0]
         self.assertEqual(upload.user.username, 'non_admin')
         self.assertTrue(upload.uploadlayer_set.all())
-        self.assertEqual(upload.state, 'Uploaded')
+        self.assertEqual(upload.state, 'UPLOADED')
+        self.assertIsNotNone(upload.name)
 
         uploaded_file = upload.uploadfile_set.first()
         self.assertTrue(os.path.exists(uploaded_file.file.path))
@@ -439,6 +441,7 @@ class UploaderTests(MapStoryTestMixin):
 
         response = c.post(reverse('uploads-configure', args=[upload.id]), data=json.dumps(payload),
                           content_type='application/json')
+
         self.assertTrue(response.status_code, 302)
         layer = Layer.objects.all()[0]
         self.assertEqual(layer.srid, 'EPSG:4326')
@@ -448,6 +451,7 @@ class UploaderTests(MapStoryTestMixin):
 
         lyr = self.cat.get_layer(layer.name)
         self.assertTrue('time' in lyr.resource.metadata)
+        self.assertEqual(UploadLayer.objects.first().layer, layer)
 
     def test_configure_view_convert_date(self):
         """
@@ -503,7 +507,6 @@ class UploaderTests(MapStoryTestMixin):
         self.assertTrue('fields' in description[0])
         self.assertTrue('name' in description[0])
 
-
     def test_delete_view(self):
         upload = UploadedData()
         upload.save()
@@ -521,6 +524,103 @@ class UploaderTests(MapStoryTestMixin):
 
     def test_list_api(self):
         c = AdminClient()
+
+        response = c.get('/importer-api/data/')
+        self.assertEqual(response.status_code, 401)
+
+        c.login_as_non_admin()
+
         response = c.get('/importer-api/data/')
         self.assertEqual(response.status_code, 200)
 
+    def test_layer_list_api(self):
+        c = AdminClient()
+        response = c.get('/importer-api/data-layers/')
+        self.assertEqual(response.status_code, 401)
+
+        c.login_as_non_admin()
+
+        response = c.get('/importer-api/data-layers/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_delete_from_non_admin_api(self):
+        """
+        Ensure users can delete their data.
+        """
+        c = AdminClient()
+
+        f = os.path.join(os.path.dirname(__file__), 'test_ogr', 'point_with_date.geojson')
+        c = AdminClient()
+        c.login_as_non_admin()
+
+        with open(f) as fp:
+            response = c.post(reverse('uploads-new'), {'file': fp}, follow=True)
+
+        self.assertEqual(UploadedData.objects.all().count(), 1)
+        id = UploadedData.objects.first().id
+        response = c.delete('/importer-api/data/{0}/'.format(id))
+        self.assertEqual(response.status_code, 204)
+
+        self.assertEqual(UploadedData.objects.all().count(), 0)
+
+    def test_delete_from_admin_api(self):
+        """
+        Ensure that administrators can delete data that isn't theirs.
+        """
+        f = os.path.join(os.path.dirname(__file__), 'test_ogr', 'point_with_date.geojson')
+        c = AdminClient()
+        c.login_as_non_admin()
+
+        with open(f) as fp:
+            response = c.post(reverse('uploads-new'), {'file': fp}, follow=True)
+
+        self.assertEqual(UploadedData.objects.all().count(), 1)
+
+        c.logout()
+        c.login_as_admin()
+
+        id = UploadedData.objects.first().id
+        response = c.delete('/importer-api/data/{0}/'.format(id))
+
+        self.assertEqual(response.status_code, 204)
+
+        self.assertEqual(UploadedData.objects.all().count(), 0)
+
+    def test_api_import(self):
+        """
+        Tests the import api.
+        """
+        f = os.path.join(os.path.dirname(__file__), 'test_ogr', 'point_with_date.geojson')
+        c = AdminClient()
+        c.login_as_non_admin()
+
+        with open(f) as fp:
+            response = c.post(reverse('uploads-new'), {'file': fp}, follow=True)
+
+        payload = {'index': 0,
+                   'convert_to_date': ['date'],
+                   'start_date': 'date',
+                   'configureTime': True,
+                   'editable': True}
+
+        self.assertTrue(isinstance(UploadLayer.objects.first().configuration_options, dict))
+
+        response = c.get('/importer-api/data-layers/1/')
+        self.assertEqual(response.status_code, 200)
+
+        response = c.post('/importer-api/data-layers/1/configure/', data=json.dumps(payload),
+                          content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue('task' in response.content)
+
+        layer = Layer.objects.all()[0]
+        self.assertEqual(layer.srid, 'EPSG:4326')
+        self.assertEqual(layer.store, self.datastore.name)
+        self.assertEqual(layer.storeType, 'dataStore')
+        self.assertTrue(layer.attributes[1].attribute_type, 'xsd:dateTime')
+
+        lyr = self.cat.get_layer(layer.name)
+        self.assertTrue('time' in lyr.resource.metadata)
+        self.assertEqual(UploadLayer.objects.first().layer, layer)
+        self.assertTrue(UploadLayer.objects.first().task_id)

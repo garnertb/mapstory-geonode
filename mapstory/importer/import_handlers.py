@@ -25,6 +25,7 @@ class FieldConverterHandler(object):
     def convert_field_to_time(self, layer, field):
         d = db.connections['datastore'].settings_dict
         connection_string = "PG:dbname='%s' user='%s' password='%s'" % (d['NAME'], d['USER'], d['PASSWORD'])
+
         with OGRFieldConverter(connection_string) as datasource:
             return datasource.convert_field(layer, field)
 
@@ -70,6 +71,7 @@ class GeoServerTimeHandler(ImportHandler):
         configure_time(lyr.resource,
                        attribute=layer_config.get('start_date'),
                        end_attribute=layer_config.get('end_date'))
+
 
 class GeoserverPublishHandler(ImportHandler):
     catalog = gs_catalog

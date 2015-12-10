@@ -1,12 +1,23 @@
 from celery.task import task
 from .utils import GDALImport
+from .models import UploadFile, UploadLayer
+from geonode.layers.models import Layer
 
 @task
-def import_object(f, configuration_options):
+def import_object(upload_file_id, configuration_options):
     """
     Imports a file into GeoNode.
     """
 
-    gi = GDALImport(f.file.path)
+    upload = UploadFile.objects.get(id=upload_file_id)
+    gi = GDALImport(upload.file.path)
     layers = gi.handle(configuration_options=configuration_options)
+
+    for layer, config in layers:
+        try:
+            matched_layer = Layer.objects.get(name=layer)
+            UploadLayer.objects.filter(upload=upload, index=config.get('index')).update(layer=matched_layer)
+        except UploadLayer.DoesNotExist, Layer.DoesNotExist:
+            pass
+
     return layers

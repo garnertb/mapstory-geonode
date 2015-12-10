@@ -14,6 +14,7 @@ from publishhandler import load_handler
 from geoserver.support import DimensionInfo
 from dateutil.parser import parse
 from django import db
+from django.conf import settings
 from django.views.generic import View
 from celery.contrib.methods import task
 from celery import chain, group
@@ -23,6 +24,13 @@ logger = logging.getLogger(__name__)
 
 ogr.UseExceptions()
 
+
+DEFAULT_IMPORT_HANDLERS = ['mapstory.importer.import_handlers.FieldConverterHandler',
+                           'mapstory.importer.import_handlers.GeoserverPublishHandler',
+                           'mapstory.importer.import_handlers.GeoServerTimeHandler',
+                           'mapstory.importer.import_handlers.GeoNodePublishHandler']
+
+IMPORT_HANDLERS = getattr(settings, 'IMPORT_HANDLERS', DEFAULT_IMPORT_HANDLERS)
 
 BASE_VRT = '''
 <OGRVRTDataSource>
@@ -42,6 +50,7 @@ def configure_time(resource, name='time', enabled=True, presentation='LIST', res
     time_info = DimensionInfo(name, enabled, presentation, resolution, units, unitSymbol, **kwargs)
     resource.metadata = {'time': time_info}
     return resource.catalog.save(resource)
+
 
 def ensure_defaults(layer):
     """
@@ -142,7 +151,12 @@ class Import(object):
         logger.warning('File extension not allowed.')
         raise FileTypeNotAllowed
 
+
 class InspectorMixin(object):
+    """
+    Inspectors open data sources and return information about them.
+    """
+
     opener = None
 
     def __init__(self, *args, **kwargs):
@@ -287,39 +301,6 @@ class GDALInspector(InspectorMixin):
         return description
 
 
-# class ImportedLayer(object):
-#
-#     def __init__(self, name, target, configuration={}, *args, **kwargs):
-#         self.name = name
-#         self.target = target
-#         self.configuration = configuration
-#
-#     def convert_field_to_time(self, field):
-#         fieldname = '{0}_as_date'.format(field)
-#         import ipdb; ipdb.set_trace()
-#         while self.target.GetLayerDefn().GetFieldIndex(fieldname) >= 0:
-#             fieldname = increment(fieldname)
-#
-#         self.target.CreateField(ogr.FieldDefn(fieldname, ogr.OFTDateTime))
-#         field_index = self.target.GetLayerDefn().GetFieldIndex(fieldname)
-#
-#         for feat in self.target:
-#
-#             if not feat:
-#                 continue
-#
-#             string_field = feat[str(field)]
-#
-#             if string_field:
-#                 pars = parse(str(string_field))
-#
-#                 feat.SetField(field_index, pars.year, pars.month, pars.day, pars.hour, pars.minute, pars.second,
-#                               pars.microsecond)
-#
-#                 self.target.SetFeature(feat)
-#
-#         return fieldname
-
 
 class GDALImport(Import):
 
@@ -338,13 +319,12 @@ class GDALImport(Import):
 
     def _initialize_handlers(self):
         self._import_handlers = [load_handler(handler, self)
-                                 for handler in ['mapstory.importer.import_handlers.FieldConverterHandler',
-                                                 'mapstory.importer.import_handlers.GeoserverPublishHandler',
-                                                 'mapstory.importer.import_handlers.GeoServerTimeHandler',
-                                                 'mapstory.importer.import_handlers.GeoNodePublishHandler']]
+                                 for handler in IMPORT_HANDLERS]
     @property
     def import_handlers(self):
-
+        """
+        Initializes handlers and/or returns them.
+        """
         if not self._import_handlers:
             self._initialize_handlers()
 
@@ -388,11 +368,11 @@ class GDALImport(Import):
         2) Executes arbitrary handlers that can modify the data set.
         3) Executes arbitrary publish handlers to publish the data set.
         """
+
         layers = self.import_file(configuration_options=configuration_options)
-        results = []
 
         for layer, config in layers:
-            results.append(self.run_import_handlers(layer, config))
+            config['handler_results'] = self.run_import_handlers(layer, config)
 
         return layers
 
@@ -403,7 +383,7 @@ class GDALImport(Import):
         results = []
 
         for handler in self.import_handlers:
-            results.append(handler.handle(layer, layer_config, *args, **kwargs))
+            results.append({type(handler).__name__ :handler.handle(layer, layer_config, *args, **kwargs)})
 
         return results
 
@@ -415,6 +395,11 @@ class GDALImport(Import):
         err = GdalErrorHandler()
         gdal.PushErrorHandler(err.handler)
         configuration_options = kwargs.get('configuration_options', [{'index': 0}])
+
+        # Configuration options should be a list at this point since the importer can process multiple layers in a
+        # single import
+        if isinstance(configuration_options, dict):
+            configuration_options = [configuration_options]
 
         data = self.open_source_datastore(filename, *args, **kwargs)
         target_file = self.open_target_datastore(self.target_store)

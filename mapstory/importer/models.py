@@ -19,6 +19,8 @@
 
 import os
 from .utils import sizeof_fmt
+from celery.result import AsyncResult
+from djcelery.models import TaskState
 from datetime import datetime
 from django.core.urlresolvers import reverse
 from django.db import models
@@ -29,6 +31,9 @@ from gsimporter import NotFound
 from os import path
 from jsonfield import JSONField
 
+DEFAULT_LAYER_CONFIGURATION = {'configureTime': True,
+                               'editable': True,
+                               'convert_to_date': []}
 
 class UploadedData(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True)
@@ -55,6 +60,7 @@ class UploadedData(models.Model):
         """
         return sizeof_fmt(self.size)
 
+
     def any_layers_imported(self):
         return any(self.uploadlayer_set.all().values_list('layer', flat=True))
 
@@ -73,9 +79,19 @@ class UploadLayer(models.Model):
     index = models.IntegerField(default=0)
     name = models.CharField(max_length=64, null=True)
     fields = JSONField(null=True)
-    layer = models.ForeignKey(Layer, null=True, verbose_name='The linked GeoNode layer.')
+    layer = models.ForeignKey(Layer, blank=True, null=True, verbose_name='The linked GeoNode layer.')
     configuration_options = JSONField(null=True)
-    # Todo: Add extent?
+    task_id = models.CharField(max_length=36, blank=True, null=True)
+
+    @property
+    def layer_data(self):
+        """
+        Serialized information about the GeoNode layer.
+        """
+        if not self.layer:
+            return
+
+        return {'title': self.layer.title, 'url': self.layer.get_absolute_url(), 'id': self.layer.id}
 
     @property
     def description(self):
@@ -85,12 +101,24 @@ class UploadLayer(models.Model):
 
         params = dict(name=self.name, fields=self.fields, imported_layer=None, index=self.index, id=self.id)
 
-
         if self.layer:
             params['imported_layer'] = {'typename': self.layer.typename,
                                         'name': self.layer.name,
                                         'url': self.layer.get_absolute_url()}
         return params
+
+
+    @property
+    def status(self):
+        """
+        Returns the status of a single map page.
+        """
+        if self.task_id:
+            try:
+                return TaskState.objects.get(task_id=self.task_id).state
+            except:
+                return AsyncResult(self.task_id).status
+        return 'UNKNOWN'
 
     class Meta:
         ordering = ('index',)

@@ -1,0 +1,102 @@
+<div class="well well-sm" style="border-radius: 0">
+    <div class="row upload" ng-cloak>
+            <div class="col-xs-12 col-md-12 section-box">
+                <div class="import-head" ng-click="showDetails=!showDetails">
+                    <div class="import-title light-bold">
+                        {{ upload.name }}
+                        <span class="pull-right"><i ng-show="'{{upload.all_layers_imported}}' === 'True'" class="fa fa-check pull-right" style="color:#3D9970;"></i></span>
+                    </div>
+                    <div class="section-box-subtitle">
+                        <div class="user-data-metadata">
+                                {[upload.date | date:"MMM d yyyy"]}
+                                <span class="pull-right">{[upload.file_size]}</span>
+                            </div>
+                    </div>
+                </div>
+                <div>
+                <div>
+                        <i ng-show="hasError" class="fa fa-times pull-right" style="color:#FF4136;"></i>
+                        <div class="row" ng-show="showDetails" style="padding: 10px">
+                            <div class="col-md-12">
+                                <hr style="margin-top: 10px"/>
+                                <!--{% if upload.any_layers_imported %}
+                                <div><span class="light-bold">Story Layers:</span>
+                                    <ul class="user-data-story-layers-list">
+                                    {% for uploaded_layer in upload.uploadlayer_set.all %}
+                                       {% if uploaded_layer.layer %}
+                                        <li><a href="{{ uploaded_layer.layer.get_absolute_url }}">{{ uploaded_layer.layer.name }}</a></li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}-->
+
+                                <!--{% if not upload.all_layers_imported %}-->
+                                <div class="light-bold" style="cursor: pointer" ng-show="!allLayersImported()"><i class="fa fa-cog"></i> Create StoryLayer from this data</div>
+                                <div class="row col-md-offset-3 import-options" ng-show="showImportOptions">
+                                    <div ng-repeat="layer in upload.layers" class="layer-in-upload">
+
+                                        <div ng-show="layer.geonode_layer">
+                                            <span><b>Story Layer:</b> </span><a href="{{layer.geonode_layer.url}}">{{layer.geonode_layer.title}}</a>
+                                        </div>
+
+                                        <form name="importOptionsForm" class="form-horizontal import-options-form" ng-show="!complete()">
+                                            <!--
+                                            <div class="col-md-2">Layer {[$index+1]}:</div>-->
+                                            <!-- TODO
+                                            <div class="form-group">
+                                                <label for="name" class="col-sm-4 control-label">Story Layer Name</label>
+                                                <input id="name" type="text" ng-model="importOptions.name">
+                                            </div>
+                                            -->
+
+                                            <div class="col-md-12">
+                                                <br/>
+                                                <div class="form-group">
+                                                    <label for="layerName" class="col-sm-4 control-label">Layer Name:</label>
+                                                    <input id="layerName" type="text" class="col-md-5" ng-model="layer.configuration_options.name" placeholder="{[layer.name]}">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="configureTime" class="col-sm-4 control-label">Enable time</label>
+                                                    <input id="configureTime" type="checkbox" ng-model="layer.configuration_options.configureTime" checked>
+                                                </div>
+                                                    <div ng-show="layer.configuration_options.configureTime">
+                                                            <div class="form-group">
+                                                                <label for="start_date" class="col-sm-4 control-label">Start date:</label>
+                                                                <select ng-model="layer.configuration_options.start_date" class="col-md-5" id="start_date" ng-required='layer.configuration_options'>
+                                                                    <option ng-repeat="option in layer.fields" value="{[option.name]}">{[option.name]}</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="end_date" class="col-sm-4 control-label">End date:</label>
+                                                                <select ng-model="layer.configuration_options.end_date" class="col-md-5" id="end_date">
+                                                                    <option ng-repeat="option in layer.fields" value="{[option.name]}">{[option.name]}</option>
+                                                                </select>
+                                                            </div>
+                                                    </div>
+                                                <div class="form-group">
+                                                    <label for="editable" class="col-sm-4 control-label">Editable</label>
+                                                    <input id="editable" type="checkbox" ng-model="layer.configuration_options.editable" checked>
+                                                </div>
+                                                <div class="form-group" style="margin-left: 50%; margin-right: 50%;">
+                                                    <div class="btn btn-default import-button" ng-click="configureUpload()">Import <i class="fa" ng-class="{'fa-circle-o-notch fa-spin': processing(), 'fa-arrow-circle-right': !processing()}"></i></div>
+                                                </div>
+                                         </div>
+                                        </form>
+                                        <div style="border-bottom-solid: 1px solid gray;"></div>
+                                    </div>
+                                </div>
+                                <!-- {% endif %} -->
+                            </div>
+                        </div>
+                </div>
+                <div class="row" ng-show="showDetails">
+                    <div class="col-md-12 user-data-story-layer-actions">
+                        <hr/>
+                        <span class="clrs-red pull-right" ng-click="deleteLayer(i)" style="cursor: pointer;"><i class="fa fa-trash-o"></i> Delete</span>
+                    </div>
+                </div>
+              </div>
+            </div>
+        </div>
+    </div>

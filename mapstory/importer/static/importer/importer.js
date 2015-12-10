@@ -1,7 +1,10 @@
 'use strict';
 
 (function() {
-  angular.module('mapstory.uploader', [])
+  angular.module('mapstory.uploader', [
+      'ngResource',
+      'mapstory.factories'
+  ])
 
   .config(function($interpolateProvider, $httpProvider) {
     $interpolateProvider.startSymbol('{[');
@@ -11,37 +14,72 @@
   })
 
 
-  .controller('uploadList', function($scope, $http) {
+  .controller('uploadList', function($scope, UploadedData) {
+    $scope.uploads = [];
+    $scope.loading = true;
+
+    UploadedData.query({}).$promise.then(function(data) {
+        $scope.uploads = data;
+        $scope.loading = false;
+    });
+
+
    })
 
   .directive('upload',
-      function($http) {
+      function($http, UploadedData) {
         return {
-          restrict: 'C',
-          replace: false,
-          scope: true,
-          // The linking function will add behavior to the template
+          restrict: 'E',
+          replace: true,
+          templateUrl: '/static/importer/partials/upload.html',
+          // The linking function will add behavior to the template,
+          scope: {
+              upload: '=uploadObject',
+              i: '='
+          },
           link: function(scope, element, attrs) {
-              scope.showImportOptions = false;
+              scope.showImportOptions = true;
               scope.layers = [];
               scope.canGetFields = true;
               scope.showImportWaiting = false;
-              scope.getFields = function(uploadid) {
+              scope.showDetails = false;
+
+              scope.allLayersImported = function() {
+                for (var i = 0; i < scope.layers.length; i++) {
+                    if (scope.layers[i].geonode_layer === {}){
+                        return false
+                    }
+                }
+                return true;
+              };
+
+              scope.deleteLayer = function(index) {
+                  var id = scope.upload.id;
+                  UploadedData.delete({id: id}, function() {
+                     console.log(scope.$parent);
+
+                     scope.$parent.uploads.splice(index, 1);
+
+                  });
+              };
+
+              scope.getFields = function() {
                   if (scope.canGetFields !== true) {
                       return;
                   }
-
                   scope.showImportWaiting = true;
-                  $http.get('/uploads/fields/' + uploadid, {}).success(function(data, status) {
+                  $http.get('/uploads/fields/' + scope.upload.id, {}).success(function(data, status) {
                       scope.layers = data;
                       scope.showImportWaiting = false;
                       scope.canGetFields = false;
+
                 }).error(function(data, status) {
                    scope.showImportWaiting = false;
                    scope.configuring = false;
                    scope.hasError = true;
                   });
               };
+
           }
         };
       })
@@ -59,25 +97,22 @@
               scope.complete = false;
               scope.importOptions = {configureTime: true, editable: true, convert_to_date: []};
 
+              scope.isImported = function() {
+                  return scope.status === 'SUCCESS';
+              };
 
-              function getDescriptionByIndex(index) {
-                  for (var i = 0; i < scope.layers.length; i++) {
-                        if (scope.layers[i]['index'] === index) {
-                            return scope.layers[i];
-                        }
-                    }
-              }
+              function validateImportOptions(){
+                  var desc = scope.layer;
+                  var layer = scope.layer;
 
-              function validateImportOptions(options, index){
-                  var desc = getDescriptionByIndex(index);
+                  layer.configuration_options = layer.configuration_options || {};
 
-
-                  if (!options.hasOwnProperty('index') === true) {
-                      options['index'] = index;
+                  if (!layer.hasOwnProperty('index') === true) {
+                      layer['index'] = index;
                   }
 
-                  var checkStartDate = options.hasOwnProperty('start_date');
-                  var checkEndDate = options.hasOwnProperty('end_date');
+                  var checkStartDate = layer.configuration_options.hasOwnProperty('start_date');
+                  var checkEndDate = layer.configuration_options.hasOwnProperty('end_date');
                   var dates = [];
 
                   if (checkStartDate === true || checkEndDate == true) {
@@ -89,26 +124,48 @@
                             }
                       }
 
-                      if (checkStartDate === true && dates.indexOf(options['start_date']) == -1) {
-                        options.convert_to_date.push(options['start_date']);
+                      if (checkStartDate === true && dates.indexOf(layer.configuration_options['start_date']) == -1) {
+                        layer.configuration_options.convert_to_date.push(layer.configuration_options['start_date']);
                       }
 
-                      if (checkEndDate === true && dates.indexOf(options['end_date']) == -1) {
-                        options.convert_to_date.push(options['end_date']);
+                      if (checkEndDate === true && dates.indexOf(layer.configuration_options['end_date']) == -1) {
+                        layer.configuration_options.convert_to_date.push(layer.configuration_options['end_date']);
                       }
                   }
-
-                  return options;
               }
 
-              scope.configureUpload = function(url, index) {
+              scope.processing = function() {
+                  return scope.layer.status === 'PENDING' || scope.layer.status === 'STARTED';
+              };
+
+              scope.complete = function() {
+                  return scope.layer.status === 'SUCCESS' || scope.layer.geonode_layer != null;
+              };
+
+              function update(){
+                  $http.get(scope.layer.resource_uri).success(function(data, status) {
+                        console.log(scope.layer, data);
+                        scope.layer = angular.extend(scope.layer, data);
+                        console.log('updated the upload object');
+
+
+                        if (scope.processing !== false) {
+                            setTimeout(function() {
+                                update();
+                            }, 2000);
+                            console.log(scope.layer.status);
+                        }
+                    });
+              }
+
+
+              scope.configureUpload = function() {
                   scope.configuring = true;
-                  $http.post(url, [validateImportOptions(scope.importOptions, index)]).success(function(data, status) {
-                      scope.configuring = false;
-                      scope.complete = true;
-                    if (data.hasOwnProperty('redirect')) {
-                        window.location = data.redirect;
-                    }
+                  validateImportOptions();
+                  $http.post(scope.layer.resource_uri + 'configure/', scope.layer.configuration_options).success(function(data, status) {
+                    // extend current object with get request to resource_uri
+                    console.log('configuration started');
+                    update();
                 }).error(function(data, status) {
                    scope.configuring = false;
                    scope.hasError = true;
