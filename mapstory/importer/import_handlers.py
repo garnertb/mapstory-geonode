@@ -13,6 +13,12 @@ class ImportHandler(object):
     def handle(self, layer, layerconfig, *args, **kwargs):
         raise NotImplementedError('Subclass should implement this.')
 
+    def can_run(self, layer, layer_config, *args, **kwargs):
+        """
+        Returns true if the configuration has enough information to run the handler.
+        """
+        return True
+
 
 class FieldConverterHandler(object):
     """
@@ -55,6 +61,10 @@ class GeoNodePublishHandler(ImportHandler):
         """
         Adds a layer in GeoNode, after it has been added to Geoserver.
         """
+
+        if not self.can_run(layer, layer_config):
+            return
+
         return gs_slurp(workspace='geonode', store=self.store_name, filter=layer)
 
 
@@ -63,13 +73,26 @@ class GeoServerTimeHandler(ImportHandler):
     Enables time in Geoserver for a layer.
     """
 
+    def can_run(self, layer, layer_config, *args, **kwargs):
+        """
+        Returns true if the configuration has enough information to run the handler.
+        """
+
+        if not all([layer_config.get('configureTime', False), layer_config.get('start_date', None)]):
+            return False
+
+        return True
+
     def handle(self, layer, layer_config, *args, **kwargs):
         """
         Configures time on the object.
         """
+
+        if not self.can_run(layer, layer_config):
+            return
+
         lyr = gs_catalog.get_layer(layer)
-        configure_time(lyr.resource,
-                       attribute=layer_config.get('start_date'),
+        configure_time(lyr.resource, attribute=layer_config.get('start_date'),
                        end_attribute=layer_config.get('end_date'))
 
 
@@ -109,4 +132,8 @@ class GeoserverPublishHandler(ImportHandler):
         """
         Publishes a layer to GeoServer.
         """
+
+        if not self.can_run(layer, layer_config):
+            return
+
         self.catalog.publish_featuretype(layer, self.store, 'EPSG:4326')
