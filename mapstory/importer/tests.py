@@ -386,6 +386,11 @@ class UploaderTests(MapStoryTestMixin):
         """
         f = os.path.join(os.path.dirname(__file__), 'test_ogr', 'point_with_date.geojson')
         c = AdminClient()
+
+        # test login required for this view
+        request = c.get(reverse('uploads-new'))
+        self.assertEqual(request.status_code, 302)
+
         c.login_as_non_admin()
 
         with open(f) as fp:
@@ -438,10 +443,10 @@ class UploaderTests(MapStoryTestMixin):
                     'configureTime': True,
                     'editable': True}]
 
-        response = c.post(reverse('uploads-configure', args=[upload.id]), data=json.dumps(payload),
+        response = c.post('/importer-api/data-layers/{0}/configure/'.format(upload.id), data=json.dumps(payload),
                           content_type='application/json')
 
-        self.assertTrue(response.status_code, 302)
+        self.assertTrue(response.status_code, 200)
         layer = Layer.objects.all()[0]
         self.assertEqual(layer.srid, 'EPSG:4326')
         self.assertEqual(layer.store, self.datastore.name)
@@ -471,9 +476,9 @@ class UploaderTests(MapStoryTestMixin):
                     'configureTime': True,
                     'editable': True}]
 
-        response = c.post(reverse('uploads-configure', args=[upload.id]), data=json.dumps(payload),
+        response = c.post('/importer-api/data-layers/{0}/configure/'.format(upload.id), data=json.dumps(payload),
                           content_type='application/json')
-        self.assertTrue(response.status_code, 302)
+        self.assertTrue(response.status_code, 200)
 
         layer = Layer.objects.all()[0]
         self.assertEqual(layer.srid, 'EPSG:4326')
@@ -485,41 +490,6 @@ class UploaderTests(MapStoryTestMixin):
         lyr = self.cat.get_layer(layer.name)
         self.assertTrue('time' in lyr.resource.metadata)
 
-    def test_describe_fields_view(self):
-        f = os.path.join(os.path.dirname(__file__), 'test_ogr', 'point_with_date.geojson')
-        c = AdminClient()
-        c.login_as_non_admin()
-
-        with open(f) as fp:
-            response = c.post(reverse('uploads-new'), {'file': fp}, follow=True)
-
-        self.assertTrue(response.status_code, 200)
-
-        upload = UploadedData.objects.first()
-        response = c.get(reverse('uploads-fields', args=[upload.id]))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response._headers['content-type'][1], 'application/json')
-
-        # just make sure this does not error out
-        description = json.loads(response.content)
-        self.assertTrue('fields' in description[0])
-        self.assertTrue('name' in description[0])
-
-    def test_delete_view(self):
-        upload = UploadedData()
-        upload.save()
-
-        c = AdminClient()
-        response = c.get(reverse('uploads-delete', args=[upload.id]))
-        self.assertEqual(200, response.status_code)
-
-        response = c.post(reverse('uploads-delete', args=[upload.id]), follow=True)
-        self.assertEqual(200, response.status_code)
-
-        # make sure the object is actually deleted
-        with self.assertRaises(UploadedData.DoesNotExist):
-            UploadedData.objects.get(id=upload.id)
 
     def test_list_api(self):
         c = AdminClient()

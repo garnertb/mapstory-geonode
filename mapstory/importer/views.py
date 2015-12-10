@@ -1,18 +1,9 @@
-import json
-from django.views.generic import FormView, ListView, DetailView, View, DeleteView, TemplateView
+from django.views.generic import FormView, ListView
 from django.core.urlresolvers import reverse_lazy
-from django.http import HttpResponseRedirect, HttpResponse
 
 from .forms import UploadFileForm
 from .models import UploadedData, UploadLayer, DEFAULT_LAYER_CONFIGURATION
-from .utils import GDALImport, GDALInspector, configure_time, OGRFieldConverter
-from geoserver.catalog import Catalog
-from geonode.geoserver.helpers import gs_catalog, ogc_server_settings
-from geonode.geoserver.helpers import gs_slurp
-from geonode.layers.models import Layer
-from django import db
-from geoserver.catalog import FailedRequestError
-from .tasks import import_object
+from .utils import GDALInspector
 
 
 class UploadListView(ListView):
@@ -35,32 +26,6 @@ class ImportHelper(object):
 
         with self.opener(path) as opened_file:
             return opened_file.describe_fields()
-
-
-class ConfigureImport(DetailView, ImportHelper):
-    model = UploadLayer
-    template_name = 'importer/configure.html'
-
-    def post(self, *args, **kwargs):
-        configuration_options = self.request.POST.getlist('configurationOptions')
-
-        if 'application/json' in self.request.META['CONTENT_TYPE']:
-            configuration_options = json.loads(self.request.body)
-
-        obj = self.get_object()
-        obj.configuration_options = configuration_options
-        obj.save()
-
-        uploaded_file = obj.upload.uploadfile_set.first()
-        import_result = import_object.delay(uploaded_file.id, configuration_options=configuration_options)
-
-        # query the db again for this object since it may have been updated during the import
-        obj = self.get_object()
-        obj.task_id = import_result.id
-        obj.save()
-
-        return HttpResponse(content=json.dumps(dict(id=import_result.id, status=import_result.status)),
-                            content_type='application/json')
 
 
 class FileAddView(FormView, ImportHelper):
@@ -95,22 +60,3 @@ class FileAddView(FormView, ImportHelper):
         form.save(commit=True)
         self.create_upload_session(form.instance)
         return super(FileAddView, self).form_valid(form)
-
-
-class UploadDescribeFields(DetailView):
-    model = UploadedData
-
-    def get(self, request, *args, **kwargs):
-        layers = []
-
-        for uploadedlayer in self.get_object().uploadlayer_set.all():
-            layers.append(uploadedlayer.description)
-
-        return HttpResponse(content=json.dumps(layers),
-                            content_type='application/json')
-
-
-class UploadDeleteView(DeleteView):
-    model = UploadedData
-    template_name = 'importer/upload_confirm_delete.html'
-    success_url = reverse_lazy('uploads-list')
