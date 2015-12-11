@@ -33,7 +33,7 @@
     }
 
     $scope.pageChanged = function() {
-      $scope.offset = $scope.currentPage * $scope.limit;
+      $scope.offset = ($scope.currentPage - 1) * $scope.limit;
       var query = {offset: $scope.offset, limit: $scope.limit};
       getUploads(query);
     };

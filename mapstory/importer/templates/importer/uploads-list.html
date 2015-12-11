@@ -29,6 +29,7 @@ body{ margin-top:20px; font-size: 14px}
 .layer-upload-name { padding: 4px; }
 .layer-upload-field-name { font-weight: 600; }
 .layer-upload-details { font-size: 13px; }
+.layer-upload-counts {margin-bottom: 6px;}
 </style>
 {% endblock %}
 
@@ -55,6 +56,7 @@ body{ margin-top:20px; font-size: 14px}
             <div ng-show="loading" style="margin-right: 50%; margin-left: 50%; margin-top: 30px; margin-bottom: 30px">
                 <i class="fa fa-spinner fa-spin fa-3x"></i>
             </div>
+            <div class="layer-upload-counts">Showing uploads {[offset]} through {[offset+uploads.length]} of {[totalItems]}.</div>
             <div ng-repeat="upload in uploads">
                 <upload upload-object="upload" i="$index"></upload>
             </div>

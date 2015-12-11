@@ -58,10 +58,13 @@
             <article id="comments" class="tab-pane">
               {% get_comment_count for resource as num_comments %}
               {{ num_comments }} comments
-              {% if user.is_authenticated %}
+              {%comment%}
+                {% if user.is_authenticated %}
+
               {% render_comment_form for resource %}
               {% endif %}
               {% render_comment_list for resource %}
+                {%endcomment%}
             </article>
           </div>
         </div>
