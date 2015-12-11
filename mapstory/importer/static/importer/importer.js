@@ -53,7 +53,7 @@
               i: '=' //passes the index of the object, used to delete uploads
           },
           link: function(scope, element, attrs) {
-              scope.showImportOptions = true;
+              scope.showImportOptions = false;
               scope.layers = [];
               scope.canGetFields = true;
               scope.showImportWaiting = false;
