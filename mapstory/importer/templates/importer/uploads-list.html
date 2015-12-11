@@ -30,6 +30,7 @@ body{ margin-top:20px; font-size: 14px}
 
 <script type="text/javascript" src="{{STATIC_URL}}importer/js/angular.js"></script>
 <script type="text/javascript" src="{{STATIC_URL}}importer/js/angular-resource.js"></script>
+<script type="text/javascript" src="{{STATIC_URL}}importer/js/ui-bootstrap-tpls.js"></script>
 <script type="text/javascript" src="{{STATIC_URL}}importer/factories.js"></script>
 <script type="text/javascript" src="{{STATIC_URL}}importer/importer.js"></script>
 {{ block.super }}
@@ -51,6 +52,7 @@ body{ margin-top:20px; font-size: 14px}
             <div ng-repeat="upload in uploads">
                 <upload upload-object="upload" i="$index"></upload>
             </div>
+            <pagination total-items="totalItems" ng-change="pageChanged()" max-size="7" class="pagination-sm" items-per-page="limit" ng-model="currentPage"></pagination>
         </div>
     </div>
 </div>

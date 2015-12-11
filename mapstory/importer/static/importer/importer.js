@@ -3,6 +3,7 @@
 (function() {
   angular.module('mapstory.uploader', [
       'ngResource',
+      'ui.bootstrap',
       'mapstory.factories'
   ])
 
@@ -17,12 +18,27 @@
   .controller('uploadList', function($scope, UploadedData) {
     $scope.uploads = [];
     $scope.loading = true;
+    $scope.currentPage = 0;
+    $scope.offset = 0;
+    $scope.limit = 10;
 
-    UploadedData.query({}).$promise.then(function(data) {
-        $scope.uploads = data;
-        $scope.loading = false;
-    });
 
+    function getUploads(query) {
+        UploadedData.query(query).$promise.then(function(data) {
+            $scope.uploads = data.objects;
+            $scope.offset = data.meta.offset;
+            $scope.totalItems = data.meta.total_count;
+            $scope.loading = false;
+        });
+    }
+
+    $scope.pageChanged = function() {
+      $scope.offset = $scope.currentPage * $scope.limit;
+      var query = {offset: $scope.offset, limit: $scope.limit};
+      getUploads(query);
+    };
+
+    getUploads({offset: $scope.offset, limit: $scope.limit});
 
    })
 
@@ -32,10 +48,9 @@
           restrict: 'E',
           replace: true,
           templateUrl: '/static/importer/partials/upload.html',
-          // The linking function will add behavior to the template,
           scope: {
               upload: '=uploadObject',
-              i: '='
+              i: '=' //passes the index of the object, used to delete uploads
           },
           link: function(scope, element, attrs) {
               scope.showImportOptions = true;

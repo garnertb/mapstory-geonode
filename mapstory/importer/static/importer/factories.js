@@ -6,9 +6,9 @@
     .factory('UploadedData', function ($resource) {
         return $resource('/importer-api/data/:id/', {}, {'query': {
             method: 'GET',
-            isArray: true,
+            isArray: false,
             transformResponse: function (jsondata) {
-                return JSON.parse(jsondata).objects;
+                return JSON.parse(jsondata);
             }
             },
                 update: {method: 'PUT'}
