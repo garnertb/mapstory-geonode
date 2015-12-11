@@ -29,6 +29,14 @@
                                     <hr/>
                                     <div class="row">
                                         <div class="layer-upload-details col-md-12">
+                                            <div>
+                                                <span class="col-md-3 layer-upload-field-name">File Type</span>
+                                                <span class="col-md-9">{{upload.file_type}}</span>
+                                            </div>
+                                            <div>
+                                                <span class="col-md-3 layer-upload-field-name">Features</span>
+                                                <span class="col-md-9">{{layer.feature_count | number : 0}}</span>
+                                            </div>
                                         </div>
 
                                         <div class="layer-upload-field col-md-12">

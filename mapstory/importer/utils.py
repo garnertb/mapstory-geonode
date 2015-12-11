@@ -179,6 +179,9 @@ class InspectorMixin(object):
     def describe_fields(self):
         raise NotImplementedError
 
+    def file_type(self):
+        raise NotImplementedError
+
 
 class OGRInspector(InspectorMixin):
 
@@ -286,7 +289,10 @@ class GDALInspector(InspectorMixin):
 
         for n in range(0, opened_file.GetLayerCount()):
             layer = opened_file.GetLayer(n)
-            layer_description = {'name': layer.GetName(), 'fields': [], 'index': n}
+            layer_description = {'name': layer.GetName(),
+                                 'feature_count': layer.GetFeatureCount(),
+                                 'fields': [],
+                                 'index': n}
 
             layer_definition = layer.GetLayerDefn()
             for i in range(layer_definition.GetFieldCount()):
@@ -300,7 +306,22 @@ class GDALInspector(InspectorMixin):
 
         return description
 
+    def get_driver(self):
+        opened_file = self.data
 
+        if not opened_file:
+            opened_file = self.open()
+
+        return opened_file.GetDriver()
+
+    def file_type(self):
+        """
+        Returns the data's file type (via the GDAL driver name)
+        """
+        try:
+            return self.get_driver().ShortName
+        except AttributeError:
+            return
 
 class GDALImport(Import):
 

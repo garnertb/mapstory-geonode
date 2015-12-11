@@ -17,15 +17,19 @@ class ImportHelper(object):
     Import Helpers
     """
 
-    opener = GDALInspector
+    inspector = GDALInspector
 
     def get_fields(self, path):
         """
         Returns a list of field names and types.
         """
 
-        with self.opener(path) as opened_file:
+        with self.inspector(path) as opened_file:
             return opened_file.describe_fields()
+
+    def get_file_type(self, path):
+        with self.inspector(path) as opened_file:
+            return opened_file.file_type()
 
 
 class FileAddView(FormView, ImportHelper):
@@ -42,6 +46,7 @@ class FileAddView(FormView, ImportHelper):
         upload_file.save()
         upload.size = upload_file.file.size
         upload.name = upload_file.name
+        upload.file_type = self.get_file_type(upload_file.file.path)
         upload.save()
 
         description = self.get_fields(upload_file.file.path)
@@ -52,6 +57,7 @@ class FileAddView(FormView, ImportHelper):
             upload.uploadlayer_set.add(UploadLayer(name=layer.get('name'),
                                                    fields=layer.get('fields', {}),
                                                    index=layer.get('index'),
+                                                   feature_count=layer.get('feature_count'),
                                                    configuration_options=configuration_options))
 
         upload.save()

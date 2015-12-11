@@ -35,6 +35,7 @@ DEFAULT_LAYER_CONFIGURATION = {'configureTime': True,
                                'editable': True,
                                'convert_to_date': []}
 
+
 class UploadedData(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True)
     state = models.CharField(max_length=16)
@@ -44,6 +45,7 @@ class UploadedData(models.Model):
     complete = models.BooleanField(default=False)
     size = models.IntegerField(null=True, blank=True)
     metadata = models.TextField(null=True)
+    file_type = models.CharField(max_length=50, null=True, blank=True)
 
     class Meta:
         ordering = ['-date']
@@ -87,6 +89,7 @@ class UploadLayer(models.Model):
     layer = models.ForeignKey(Layer, blank=True, null=True, verbose_name='The linked GeoNode layer.')
     configuration_options = JSONField(null=True)
     task_id = models.CharField(max_length=36, blank=True, null=True)
+    feature_count = models.IntegerField(null=True, blank=True)
 
     @property
     def layer_data(self):

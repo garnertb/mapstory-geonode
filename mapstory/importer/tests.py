@@ -402,6 +402,7 @@ class UploaderTests(MapStoryTestMixin):
 
         upload = response.context['object_list'][0]
         self.assertEqual(upload.user.username, 'non_admin')
+        self.assertEqual(upload.file_type, 'GeoJSON')
         self.assertTrue(upload.uploadlayer_set.all())
         self.assertEqual(upload.state, 'UPLOADED')
         self.assertIsNotNone(upload.name)
@@ -421,8 +422,25 @@ class UploaderTests(MapStoryTestMixin):
 
         self.assertTrue(layers[0]['name'], 'us_shootings')
         self.assertEqual([n['name'] for n in layers[0]['fields']], ['Date', 'Shooter', 'Killed',
-                                                                                 'Wounded', 'Location', 'City',
-                                                                                 'Longitude', 'Latitude'])
+                                                                    'Wounded', 'Location', 'City',
+                                                                    'Longitude', 'Latitude'])
+        self.assertEqual(layers[0]['feature_count'], 203)
+
+    def test_gdal_file_type(self):
+        """
+        Tests the describe fields functionality.
+        """
+        files = ((os.path.join(os.path.dirname(__file__), 'test_ogr', 'us_shootings.csv'), 'CSV'),
+                 (os.path.join(os.path.dirname(__file__), 'test_ogr', 'point_with_date.geojson'), 'GeoJSON'),
+                 (os.path.join(os.path.dirname(__file__), 'test_ogr', 'mojstrovka.gpx'), 'GPX'),
+                 (os.path.join(os.path.dirname(__file__), 'test_ogr', 'us_states.kml'), 'KML'),
+                 (os.path.join(os.path.dirname(__file__), 'test_ogr', 'boxes_with_year_field.shp'), 'ESRI Shapefile'),
+                 (os.path.join(os.path.dirname(__file__), 'test_ogr', 'boxes_with_date_iso_date.zip'), 'ESRI Shapefile'),
+        )
+
+        for path, file_type in files:
+            with GDALInspector(path) as f:
+                self.assertEqual(f.file_type(), file_type)
 
     def test_configure_view(self):
         """
