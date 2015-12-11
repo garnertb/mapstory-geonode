@@ -60,6 +60,11 @@ class UploadedData(models.Model):
         """
         return sizeof_fmt(self.size)
 
+    def file_url(self):
+        """
+        Exposes the file url.
+        """
+        return self.uploadfile_set.first().file.url
 
     def any_layers_imported(self):
         return any(self.uploadlayer_set.all().values_list('layer', flat=True))

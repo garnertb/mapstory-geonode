@@ -89,6 +89,7 @@ class UploadedDataResource(ModelResource):
 
     file_size = CharField(attribute='filesize', readonly=True)
     layers = ToManyField(UploadedLayerResource, 'uploadlayer_set', full=True)
+    file_url = CharField(attribute='file_url', readonly=True, null=True)
 
     class Meta:
         queryset = UploadedData.objects.all()
